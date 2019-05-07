@@ -262,6 +262,127 @@ summary(distinctmodel)
 anova(distinctmodel)
 
 
+# R script to perform dbRDA
+
+
+library(vegan)
+install.packages("vegan")
+library(readxl)
+install.packages("tidyverse")
+library(tidyverse)
+library(dplyr)
+library(magrittr)
+install.packages("broom")
+library(broom)
+library(ggplot2)
+library(vegan)
+install.packages("grid")
+library(grid)
+
+install.packages("ggvegan")
+
+# read environmental matrix
+
+envmatrix <- read_excel("Envimatrix.xlsx")
+View(envmatrix)
+
+#To make sure that matrix are taken by R as DATA FRAMES
+envmatrix<-as.data.frame(envmatrix)
+
+#To remove the row's names and make variables as.numeric  
+
+envmatrix <- envmatrix[,-1]
+
+
+str(envmatrix)
+envmatrix$Sand <- as.numeric(as.character(envmatrix$Sand))
+envmatrix$Silt <- as.numeric(as.character(envmatrix$Silt))
+envmatrix$Clay <- as.numeric(as.character(envmatrix$Clay))
+envmatrix$Skeleton <- as.numeric(as.character(envmatrix$Skeleton))
+envmatrix$pH <- as.numeric(as.character(envmatrix$pH))
+envmatrix$Moisture <- as.numeric(as.character(envmatrix$Moisture))
+envmatrix$Forest <- as.factor(as.character(envmatrix$Forest))
+envmatrix$Forest <- factor(envmatrix$Forest, levels = c("Ankoba", "Malaza", "Anaramalangy"))
+
+str(envmatrix)
+
+
+# read species matrix
+
+Speciesmatrix <- read_excel("~/Documents/Tables_analysis_R/Speciesmatrix.xlsx")
+View(Speciesmatrix)
+spmatrix <- Speciesmatrix[,-1] 
+
+str(spmatrix)
+
+#To perform rank analysis and decide which DISTANCE to use
+
+
+rankindex(envmatrix, spmatrix, indices = c("euc", "man", "gow", "bra", "kul"),stepacross= FALSE, method = "spearman")
+
+# Output  euc       man       gow       bra       kul 
+#        0.3595686 0.4755302 0.2414315 0.6214258 0.6253093
+
+
+
+
+#performs distance based redundancy Analysis of the matrix with only all the selected variables
+
+env <- envmatrix[-c(1,2,3),] # to remove first three rows with NA's
+spmatrix <- spmatrix[-c(1,2,3),]# 
+
+
+rdaclass <- dbrda(spmatrix~ Moisture + Clay + Sand + Silt + pH, env, distance = "bray", na.action = na.omit)
+plot(rdaclass)
+scores(rdaclass)
+summary(rdaclass)
+R2 <- RsquareAdj(rdaclass)$r.squared
+R2 
+R2adj <- RsquareAdj(rdaclass)$adj.r.squared
+R2adj 
+
+
+
+# plotting  https://oliviarata.wordpress.com/2014/09/06/rda-in-ggplot2/#more-96
+
+# plot the data 
+
+plot(rdaclass,type='none', display = c("sp", "wa", "cn", "bp", "lc", "reg"),
+     scaling = "symmetric", correlation = FALSE, xlab = "", ylab = "")
+title(xlab = "dbRDA 1", ylab = "dbRDA 2")
+text(rdaclass,dis='bp',cex=0.9,lwd=2,lty='solid',scaling = "symmetric")
+points(rdaclass, pch=21, col="red", bg=, cex=1, scaling="symmetric")
+with(env, levels(Forest))
+with(env, points(rdaclass, display = "sites", col = color[Forest], scaling = "symmetric", pch = 19, cex=1.3,bg = colvec[Forest])) # COLORS PLOTS
+text(rdaclass,dis='sites',cex=1,lwd=2, col=c("black"), scaling = "symmetric") # rownames
+with(env, legend("topright", legend = levels(Forest), bty = "n",
+                           col = color, pch = 19, pt.bg = color))
+
+colvec <- c("black", "gray45", "gray87")
+colvecfortrial <- c("blue", "red", "orange")
+
+color <-c("#47ba3e" ,"#6d9df8","#e87c71")
+
+RDA_xy <- data.frame(dbrda4$points)
+
+str(dbrda4)
+
+
+
+#ANOVA de dbrda
+
+anova(rdaclass)%>%tidy()
+anova(rdaclass)
+anova(rdaclass,by="term",step=200)
+anova(rdaclass,by="axis",step=200)
+
+
+
+#Pearson correlation
+cor.test(envmatrix$pH,envmatrix$Moisture, method = 'spearman')
+
+
+
 # Get R version for citation
 
 R.version$year
