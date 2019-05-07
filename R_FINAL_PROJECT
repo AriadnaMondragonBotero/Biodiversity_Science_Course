@@ -1,0 +1,267 @@
+# R biodiversity Science
+#Final project Script
+# Ariadna Mondragon Botero 
+
+
+# Install packages and call libraries
+
+library(ape)
+library(geiger)
+install.packages("phytools")
+library(phytools)
+library(adephylo)
+library(phylobase)
+library(picante)
+library(pez)
+library(vegan)
+library(MASS)
+library(FD)
+library(ecodist)
+install.packages("devtools",repos="https://cloud.r-project.org",quiet=TRUE)
+library(devtools)
+install_github("https://github.com/liamrevell/phytools/")
+library("phytools")
+packageVersion("phytools")
+install.packages("phytools",repos="https://cloud.r-project.org",quiet=TRUE)
+install_github("liamrevell/phytools")
+
+
+devtools::install_github("jinyizju/V.PhyloMaker", force=T)
+library(V.PhyloMaker)
+help(V.PhyloMaker)
+??V.PhyloMaker
+
+
+# Working directory check
+getwd()
+
+############################# PHYLOGENETIC TREE #######################################
+
+# input  species list
+
+
+example3 <- read.csv2("Sp_phylotree_maker2.csv")
+View(example3)
+
+# generate the phylogeny presented in
+
+rel2 <- bind.relative(sp.list=example3, tree = GBOTB.extended, nodes = nodes.info.1)
+
+tree.b2 <- phylo.maker(sp.list = rel2$species.list, tree = rel2$phylo, nodes=rel2$nodes.info, scenarios="S3")
+
+write.tree(tree.b2$scenario.3, file= "Tree3.tre")
+
+tree3 <- ape::read.tree("Tree3.tre")
+
+# To see the species that are present in the tree
+plot(tree3)
+
+
+# First i'll check which species in my list are in the tree I created using V.Phylo maker. In the
+#class excercise we did it using smith and brown. 
+
+trMB <- read.tree("~/Documents/MINNESOTA - DOCTORADO/Semester_2/Biodiversity_Science/R_PRACTICES_BIODIVERSITY_SCIENCE/Data/ALLMB.CCESR.tre")
+str(trMB)
+
+# I load the functional trait matrix 
+install.packages("openxlsx", dependencies = TRUE)
+library(openxlsx)
+library(readxl)
+
+
+Sptraits2 <- read.xlsx("Sptraits2.xlsx", rowNames=T)
+Sptraits2$SLA <- as.numeric(as.character(Sptraits2$SLA))
+Sptraits2$LDMC <- as.numeric(as.character(Sptraits2$LDMC))
+Sptraits2$SLA <- as.integer(as.numeric(Sptraits2$SLA))
+Sptraits2$LDMC <- as.integer(as.numeric(Sptraits2$LDMC))
+
+
+transform(Sptraits2, SLA = as.numeric(SLA))
+transform(Sptraits2, LDMC = as.numeric(LDMC))
+
+# Unique species 
+spnames2 <- unique(Sptraits2$Species)
+length(spnames2)
+
+# Eliminates from tree different species (setdiff) 
+trMBcom <- drop.tip(trMB, setdiff(trMB$tip.label, spnames2))
+
+# Species in the community but not in the phylogeny (to include in V.phylomaker)
+setdiff(spnames2, trMBcom$tip.label)
+length(trMBcom$tip.label)
+plot(trMBcom)
+
+plot(treecom)
+
+# remove nas from matrix
+bio.dat <- data.frame(na.omit(Sptraits2))
+head(bio.dat)
+bio.dat <- bio.dat[, c(3, 1, 2)]
+BBScom <- data.frame(sample2matrix(bio.dat))
+BBScom[1:10, 1:10]
+
+
+# Import the community data matrix 
+# To import the data frame cvs and first column row names 
+
+abundance2 <- read.csv2("Abundance2.csv", row.names = 1)
+commdata2<-abundance2
+
+rownames(commdata2)
+colnames(commdata2)
+
+# To compare to the phylocom example
+comm <- phylocom$sample
+str(comm)
+View(comm)
+
+
+
+# now I have
+# 1. A phylogenetic tree called tree3 and treecom
+# 2. A comunity data matrix called commdata
+# 3. A species traits data called Sptraits
+
+
+
+# Faith's PD
+
+FPD<- pd(commdata2, tree3, include.root = F)
+FPD
+cor.test(FPD$SR, FPD$PD)
+plot(FPD$SR, FPD$PD, xlab = "Species richness", ylab = "PD (millions of years)", pch = 16)
+
+
+# Calculate MPD
+
+phydist <- cophenetic(tree3)
+
+ses.mpd.result <- ses.mpd(commdata2, phydist, null.model="taxa.labels", abundance.weighted= F, runs = 999, iterations = 1000)
+ses.mpd.result
+
+
+# Calculate MNTD
+
+ses.mntd.result <- ses.mntd(commdata2, phydist, null.model = "taxa.labels",
+                            abundance.weighted = FALSE, runs = 999)
+ses.mntd.result
+
+
+
+# Calculate Phylogenetic Beta Diversity 
+
+library(cluster)
+comdist.result <- comdist(commdata2, phydist)
+comdist.clusters <- hclust(comdist.result)
+plot(comdist.clusters)
+
+
+
+# Reorder species 
+Sptraits2 <- Sptraits2[tree3$tip.label,]
+multiPhylosignal(Sptraits2,tree4)
+
+# To turn tree into bifurcating tree
+tree4<-multi2di(tree3)
+plot(tree4)
+
+
+
+library(nlme)
+download.packages("nlme")
+library(ape)
+
+# PIC
+
+SLA<-Sptraits2$SLA
+names(SLA)<-row.names(Sptraits2)
+LDMC<-Sptraits2$LDMC
+names(LDMC)<-row.names(Sptraits2)
+
+
+SLAPIC <- pic(SLA, tree4)
+LDMCPIC <- pic(LDMC, tree4)
+SLAPIC
+LDMCPIC
+
+OLSmodel <- lm(SLAPIC ~ LDMCPIC)
+plot(SLAPIC ~ LDMCPIC)
+abline(OLSmodel)
+summary(OLSmodel)
+
+
+# PGLS (RESULTS NOT INCLUDED IN THE STUDY)
+
+SptraitsPGLS <- read.csv2("Sptraitspgls.csv", row.names = 1)
+str(SptraitsPGLS)
+SptraitsPGLS$SLA <- as.integer(as.character(SptraitsPGLS$SLA))
+SptraitsPGLS$LDMC <- as.integer(as.character(SptraitsPGLS$LDMC))
+SptraitsPGLS$Species.1 <- as.character(as.factor(SptraitsPGLS$Species.1))
+tree4$tip.label
+SptraitsPGLS <- SptraitsPGLS[tree4$tip.label,]
+
+plot(lm(SLA~LDMC, data=SptraitsPGLS))# I can test normality like this
+lm(SLA~LDMC, data=SptraitsPGLS)
+cor.test(SLA,LDMC)
+
+# Plot 2 variables LMDC and SLA with species names mapped in the graph 
+PGLSmodel <- gls(SLA ~ LDMC, correlation = corBrownian(phy = tree4), data = SptraitsPGLS)
+plot( SLA ~ LDMC, data=SptraitsPGLS)
+abline(a = coef(PGLSmodel)[1], b = coef(PGLSmodel)[2])
+text(labels = SptraitsPGLS$Species.1)
+with(SptraitsPGLS, text(SLA ~ LDMC, labels = SptraitsPGLS$Species.1, pos = 4))
+
+
+
+#Test normality 
+
+plot(PGLSmodel)
+res <- resid(PGLSmodel, type="n")
+qqnorm(res)
+qqline(res)
+
+
+### CALCULATE FUNCTIONAL TRAIT DIVERSITY INDICES ###
+
+Sptraits4 <- read.csv2("Sptraits4.csv",row.names = 1)
+abundance <- read.csv2("Abundance4.csv", row.names = 1)
+fundiv <- dbFD(Sptraits4, abundance)
+fundiv$FRic
+fundiv
+View(Sptraits3)
+row.names(abundance)
+colnames(abundance)
+rownames(Sptraits3)
+
+
+# Evolutionary distinctiveness
+
+evol.distinct<-evol.distinct(tree3, type = c("equal.splits"),
+                             scale = FALSE, use.branch.lengths = TRUE)
+
+
+evol.distinct2<-evol.distinct(tree3, type = c("fair.proportion"),
+                              scale = FALSE, use.branch.lengths = TRUE)
+
+
+# upload a new generated excel file with the distinctiveness values and abundances 
+# per species so that I can make a linear model with those 
+
+distinct<-read.xlsx("Distinct.xlsx")
+View(distinct)
+str(distinct)
+distinct$Distinct <- as.numeric(as.character(distinct$Distinct))
+
+distinctmodel <- lm(Distinct ~ Abundance, data=distinct)
+plot(Distinct ~ Abundance, data=distinct,
+     ylab="Evolutionary distinctiveness",
+     xlab="Species abundance")
+with(distinct, text(Distinct~Abundance, labels = distinct$Species.1, pos = 4))
+abline(distinctmodel)
+summary(distinctmodel)
+anova(distinctmodel)
+
+
+# Get R version for citation
+
+R.version$year
